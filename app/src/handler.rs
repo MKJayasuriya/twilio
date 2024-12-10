@@ -84,7 +84,7 @@ pub async fn handle_twilio_webhook_status(
 }
 
 #[derive(Deserialize, Debug, Clone)]
-#[serde(rename = "PascalCase")]
+#[serde(rename_all = "PascalCase")]
 pub struct WebhookPayload {
     pub sms_message_sid: String,
     pub num_media: i32,
