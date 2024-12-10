@@ -15,36 +15,8 @@ pub struct WebhookData {
     pub account_sid: String,
 }
 
-// #[derive(Deserialize, Debug)]
-// pub struct WebhookPayload {
-//     pub SmsMessageSid: String,
-//     pub NumMedia: String,
-//     pub ProfileName: String,
-//     pub MessageType: String,
-//     pub SmsSid: String,
-//     pub WaId: String,
-//     pub SmsStatus: String,
-//     pub Body: String,
-//     pub ButtonText: String,
-//     pub To: String,
-//     pub ButtonPayload: String,
-//     pub NumSegments: String,
-//     pub ReferralNumMedia: String,
-//     pub MessageSid: String,
-//     pub AccountSid: String,
-//     pub From: String,
-//     pub ApiVersion: String,
-// }
-
-// pub async fn handle_twilio_webhook_payload(
-//     Extension(app_state): ExtState,
-//     Form(form): Form<WebhookPayload>,
-// ) {
-//     println!("{:?}", form);
-// }
-
 pub async fn handle_twilio_webhook_status(
-    Extension(app_state): ExtState, // Correct the type for Extension
+    Extension(app_state): ExtState,
     Form(form): Form<WebhookData>,
 ) -> Result<impl IntoResponse, StatusCode> {
     let db: &PgPool = &app_state.db;
@@ -109,4 +81,90 @@ pub async fn handle_twilio_webhook_status(
     );
 
     Ok((StatusCode::OK, "Message status logged"))
+}
+
+#[derive(Deserialize, Debug, Clone)]
+#[serde(rename = "PascalCase")]
+pub struct WebhookPayload {
+    pub sms_message_sid: String,
+    pub num_media: i32,
+    pub profile_name: String,
+    pub message_type: String,
+    pub sms_sid: String,
+    pub wa_id: String,
+    pub sms_status: String,
+    pub body: String,
+    pub button_text: Option<String>,
+    pub to: String,
+    pub button_payload: String,
+    pub num_segments: i32,
+    pub referral_num_media: i32,
+    pub message_sid: String,
+    pub account_sid: String,
+    pub from: String,
+    pub api_version: String,
+}
+
+pub async fn handle_twilio_webhook_payload(
+    Extension(app_state): ExtState,
+    Form(form): Form<WebhookPayload>,
+) -> Result<impl axum::response::IntoResponse, axum::http::StatusCode> {
+    let db: &PgPool = &app_state.db;
+
+    tracing::info!("resp {:?}", form);
+
+    let query = r#"
+        INSERT INTO twilio_incoming_messages (
+            sms_message_sid,
+            num_media,
+            profile_name,
+            message_type,
+            sms_sid,
+            wa_id,
+            sms_status,
+            body,
+            button_text,
+            to_phone,
+            button_payload,
+            num_segments,
+            referral_num_media,
+            message_sid,
+            account_sid,
+            from_phone,
+            api_version
+        ) VALUES (
+            $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17
+        )
+    "#;
+
+    match sqlx::query(query)
+        .bind(form.sms_message_sid)
+        .bind(form.num_media)
+        .bind(form.profile_name)
+        .bind(form.message_type)
+        .bind(form.sms_sid)
+        .bind(form.wa_id)
+        .bind(form.sms_status)
+        .bind(form.body)
+        .bind(form.button_text)
+        .bind(form.to)
+        .bind(form.button_payload)
+        .bind(form.num_segments)
+        .bind(form.referral_num_media)
+        .bind(form.message_sid)
+        .bind(form.account_sid)
+        .bind(form.from)
+        .bind(form.api_version)
+        .execute(db)
+        .await
+    {
+        Ok(_) => {
+            println!("Incoming message logged successfully");
+            Ok((axum::http::StatusCode::OK, "Message logged"))
+        }
+        Err(e) => {
+            eprintln!("Error logging incoming message: {:?}", e);
+            Err(axum::http::StatusCode::INTERNAL_SERVER_ERROR)
+        }
+    }
 }

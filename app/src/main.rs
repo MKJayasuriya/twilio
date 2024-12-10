@@ -39,7 +39,7 @@ async fn main() -> Result<()> {
 
     let app = Router::new()
         .route("/status", post(handler::handle_twilio_webhook_status))
-        // .route("/receive", post(handler::handle_twilio_webhook_payload))
+        .route("/receive", post(handler::handle_twilio_webhook_payload))
         .layer(
             CorsLayer::new()
                 .allow_origin(Any)
