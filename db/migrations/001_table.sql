@@ -1,17 +1,18 @@
-CREATE TABLE IF NOT EXISTS app_user (
-    id BIGSERIAL PRIMARY KEY NOT NULL,
-    created_on TIMESTAMP DEFAULT now(),
-    modified_on TIMESTAMP DEFAULT now(),
-    username VARCHAR(128) NOT NULL,
-    email VARCHAR(128) NOT NULL,
-    password VARCHAR(128) NOT NULL
+-- 
+CREATE TABLE twilio_webhook_logs (
+    id SERIAL PRIMARY KEY,
+    sms_sid VARCHAR(64) UNIQUE NOT NULL,
+    from_phone VARCHAR(64) NOT NULL,
+    to_phone VARCHAR(64) NOT NULL, 
+    account_sid VARCHAR(64) NOT NULL,
+    latest_status VARCHAR(64),
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE TABLE IF NOT EXISTS file (
-    id BIGSERIAL PRIMARY KEY NOT NULL,
-    created_on TIMESTAMP DEFAULT now(),
-    user_id BIGINT NOT NULL REFERENCES app_user(id),
-    title VARCHAR(128) NOT NULL,
-    size VARCHAR(16) NOT NULL,
-    path VARCHAR(128) NOT NULL
+CREATE TABLE twilio_message_status (
+    id SERIAL PRIMARY KEY,
+    sms_sid VARCHAR(64) NOT NULL REFERENCES twilio_webhook_logs(sms_sid) ON DELETE CASCADE,
+    message_status VARCHAR(64) NOT NULL,
+    status_updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );

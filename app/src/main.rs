@@ -13,6 +13,8 @@ use db::AppState;
 use tokio::signal;
 use tower_http::{cors::Any, services::ServeDir};
 use tower_http::{cors::CorsLayer, trace::TraceLayer};
+use tracing::info;
+use tracing_subscriber;
 
 mod db;
 mod handler;
@@ -22,10 +24,13 @@ type ExtState = Extension<AppState>;
 
 #[tokio::main]
 async fn main() -> Result<()> {
+    tracing_subscriber::fmt::init();
+
     dotenvy::dotenv()?;
 
     // Db
     let pool = db::conn().await?;
+    info!("Database connection established.");
 
     let app_host = std::env::var("APP_HOST").unwrap_or("127.0.0.1".to_string());
     let app_port = std::env::var("APP_PORT").unwrap_or("8000".to_string());
@@ -34,7 +39,7 @@ async fn main() -> Result<()> {
 
     let app = Router::new()
         .route("/status", post(handler::handle_twilio_webhook_status))
-        .route("/receive", post(handler::handle_twilio_webhook_payload))
+        // .route("/receive", post(handler::handle_twilio_webhook_payload))
         .layer(
             CorsLayer::new()
                 .allow_origin(Any)
@@ -46,10 +51,11 @@ async fn main() -> Result<()> {
         .nest_service("/assets", ServeDir::new("assets"));
 
     let server_url = format!("{}:{}", app_host, app_port);
-    println!("App starting in {}!", server_url);
+    info!("App starting at {}!", server_url);
 
-    //server listening address
     let listener = tokio::net::TcpListener::bind(server_url).await.unwrap();
+    info!("Server listening on {}:{}", app_host, app_port);
+
     axum::serve(listener, app.into_make_service())
         .with_graceful_shutdown(shutdown_signal())
         .await
@@ -63,6 +69,7 @@ async fn shutdown_signal() {
         signal::ctrl_c()
             .await
             .expect("Failed to install Ctrl + C handler");
+        info!("Received Ctrl + C, shutting down gracefully.");
     };
 
     #[cfg(unix)]
@@ -71,6 +78,7 @@ async fn shutdown_signal() {
             .expect("failed to install signal handler")
             .recv()
             .await;
+        info!("Received termination signal, shutting down gracefully.");
     };
 
     #[cfg(not(unix))]
